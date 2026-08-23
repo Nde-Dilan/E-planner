@@ -10,6 +10,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { ApiResponse } from './shared/types';
+import { vendorRouter } from './modules/vendors';
+import { errorMiddleware } from './shared/middlewares/error.middleware';
 
 // ─────────────────────────────────────────────────────────────
 // Configuration & Initialisation
@@ -82,7 +84,7 @@ app.use((req: Request, _res: Response, next: NextFunction): void => {
  * Endpoint : GET /api/health
  * Retourne le statut du serveur avec timestamp
  */
-app.get('/api/health', (req: Request, res: Response): void => {
+app.get('/api/health', (_req: Request, res: Response): void => {
   const response: ApiResponse<{ uptime: number; environment: string }> = {
     success: true,
     data: {
@@ -99,7 +101,7 @@ app.get('/api/health', (req: Request, res: Response): void => {
  * Route racine (/)
  * Redirect vers /api/health ou message de bienvenue
  */
-app.get('/', (req: Request, res: Response): void => {
+app.get('/', (_req: Request, res: Response): void => {
   const response: ApiResponse<{ version: string }> = {
     success: true,
     data: {
@@ -115,7 +117,7 @@ app.get('/', (req: Request, res: Response): void => {
  * Route de documentation API
  * Endpoint : GET /api/docs
  */
-app.get('/api/docs', (req: Request, res: Response): void => {
+app.get('/api/docs', (_req: Request, res: Response): void => {
   const response: ApiResponse<{ endpoints: string[] }> = {
     success: true,
     data: {
@@ -126,6 +128,10 @@ app.get('/api/docs', (req: Request, res: Response): void => {
         'GET /api/venues',
         'POST /api/vendors',
         'GET /api/vendors',
+        'GET /api/vendors/:id',
+        'POST /api/vendors/:id/quote',
+        'PUT /api/vendors/:id',
+        'DELETE /api/vendors/:id',
         'POST /api/budget/estimate',
         'POST /api/reviews',
         'GET /api/reviews',
@@ -136,6 +142,17 @@ app.get('/api/docs', (req: Request, res: Response): void => {
   };
   res.status(200).json(response);
 });
+
+// ─────────────────────────────────────────────────────────────
+// Module Routes
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Vendors Module Router
+ * Endpoint : /api/vendors
+ * Handles all vendor-related operations (search, detail, quotes, CRUD)
+ */
+app.use('/api/vendors', vendorRouter);
 
 // ─────────────────────────────────────────────────────────────
 // Route 404
@@ -152,37 +169,15 @@ app.use((req: Request, res: Response): void => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// Global Error Handler
+// Global Error Handler Middleware
 // ─────────────────────────────────────────────────────────────
 
-app.use(
-  (
-    err: Error,
-    req: Request,
-    res: Response,
-    // next n'est pas utilisé mais est requis pour la signature d'error middleware
-    _next: NextFunction
-  ): void => {
-    const statusCode = (err as any).statusCode || 500;
-    const isDevelopment = NODE_ENV === 'development';
-
-    // Log l'erreur complète en développement seulement
-    if (isDevelopment) {
-      console.error('Error:', err);
-    } else {
-      console.error('Error:', err.message);
-    }
-
-    const response: ApiResponse = {
-      success: false,
-      message: isDevelopment ? err.message : 'Une erreur serveur est survenue',
-      errorCode: (err as any).code || 'INTERNAL_SERVER_ERROR',
-      timestamp: new Date().toISOString(),
-    };
-
-    res.status(statusCode).json(response);
-  }
-);
+/**
+ * Error middleware must be registered as the LAST middleware
+ * to catch all errors thrown during request processing.
+ * It standardizes error responses and masks sensitive information in production.
+ */
+app.use(errorMiddleware);
 
 // ─────────────────────────────────────────────────────────────
 // Démarrage du serveur

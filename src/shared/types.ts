@@ -119,6 +119,64 @@ export interface VendorSearchParams {
   minRating?: number;
 }
 
+/**
+ * Paramètres de recherche étendus pour les prestataires.
+ * Étend VendorSearchParams avec les filtres de prix et la pagination.
+ */
+export interface VendorExtendedSearchParams extends VendorSearchParams {
+  /** Prix minimum de la fourchette (en XAF, entier positif) */
+  minPrice?: number;
+  /** Prix maximum de la fourchette (en XAF, entier positif) */
+  maxPrice?: number;
+  /** Numéro de page (>= 1, défaut : 1) */
+  page?: number;
+  /** Nombre d'éléments par page (1-100, défaut : 20) */
+  limit?: number;
+}
+
+/**
+ * Demande de devis envoyée par un client vers un prestataire.
+ */
+export interface QuoteRequest {
+  /** Nom complet du client (2-100 caractères) */
+  clientName: string;
+  /**
+   * Contact du client : email RFC 5322 ou téléphone E.164 +237.
+   * Exemple : "client@example.com" ou "+237612345678"
+   */
+  contact: string;
+  /** Description détaillée du besoin (10-1000 caractères) */
+  message: string;
+  /** Type d'événement (ex. : "Mariage", "Anniversaire", max 100 caractères) */
+  eventType: string;
+}
+
+/**
+ * Demande de devis enregistrée avec métadonnées système.
+ */
+export interface Quote extends QuoteRequest {
+  /** Identifiant unique de la demande (UUID v4) */
+  id: string;
+  /** Identifiant du prestataire ciblé */
+  vendorId: string;
+  /** Date de soumission (ISO 8601) */
+  createdAt: string;
+  /** Contact masqué pour les journaux (numéro tronqué ou email intact) */
+  maskedContact: string;
+}
+
+/**
+ * Codes d'erreur métier spécifiques au module Vendors.
+ */
+export type VendorErrorCode =
+  | 'VENDOR_NOT_FOUND'
+  | 'VALIDATION_ERROR'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'RATE_LIMIT_EXCEEDED'
+  | 'TOO_MANY_REQUESTS'
+  | 'INTERNAL_SERVER_ERROR';
+
 // ─────────────────────────────────────────────
 // MODULE : BUDGET
 // ─────────────────────────────────────────────
@@ -299,6 +357,9 @@ export interface ApiResponse<T = unknown> {
 
   /** Code d'erreur métier (présent uniquement en cas d'erreur) */
   errorCode?: string;
+
+  /** Tableau des erreurs de validation (présent uniquement si erreurs de validation) */
+  errors?: ValidationError[];
 
   /** Timestamp de la réponse (ISO 8601) */
   timestamp: string;
